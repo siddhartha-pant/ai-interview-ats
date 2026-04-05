@@ -1,8 +1,9 @@
-const pdfParse = require("pdf-parse");
+const pdfParse = require("pdf-parse/lib/pdf-parse.js");
 const mongoose = require("mongoose");
 const {
   generateInterviewReport,
   generateResumePdf,
+  generatePdfFromHtml,
 } = require("../services/ai.service");
 const interviewReportModel = require("../models/interviewReport.model");
 
@@ -90,7 +91,7 @@ async function getAllInterviewReportsController(req, res, next) {
       .find({ user: req.user.id })
       .sort({ createdAt: -1 })
       .select(
-        "-resume -selfDescription -jobDescription -__v -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan",
+        "-resume -selfDescription -jobDescription -__v -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan -resumeHtml",
       );
 
     res.status(200).json({
@@ -103,7 +104,9 @@ async function getAllInterviewReportsController(req, res, next) {
 }
 
 /**
- * @description Controller to generate resume PDF based on user self description, resume content and job description.
+ * @description Controller to generate resume PDF.
+ * On first call: generates via Gemini and caches the HTML in DB.
+ * On repeat calls: skips Gemini entirely, converts cached HTML to PDF directly.
  */
 async function generateResumePdfController(req, res, next) {
   try {
@@ -122,17 +125,27 @@ async function generateResumePdfController(req, res, next) {
       return res.status(404).json({ message: "Interview report not found." });
     }
 
-    const { resume, jobDescription, selfDescription } = interviewReport;
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`,
+    });
 
-    const pdfBuffer = await generateResumePdf({
+    // if HTML was already generated before, skip Gemini entirely
+    if (interviewReport.resumeHtml) {
+      const pdfBuffer = await generatePdfFromHtml(interviewReport.resumeHtml);
+      return res.send(pdfBuffer);
+    }
+
+    // first time — call Gemini, cache the html, return the pdf
+    const { resume, jobDescription, selfDescription } = interviewReport;
+    const { html, pdfBuffer } = await generateResumePdf({
       resume,
       jobDescription,
       selfDescription,
     });
 
-    res.set({
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`,
+    await interviewReportModel.findByIdAndUpdate(interviewReportId, {
+      resumeHtml: html,
     });
 
     res.send(pdfBuffer);
