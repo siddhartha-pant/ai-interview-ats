@@ -111,7 +111,7 @@ async function generateInterviewReport({
 }) {
   return await withRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       config: {
         systemInstruction: `You are an expert technical interviewer and career coach. Given candidate info and a job description, generate a concise structured interview report. Be direct and practical. No filler content.`,
         responseMimeType: "application/json",
@@ -159,7 +159,7 @@ async function generatePdfFromHtml(htmlContent) {
 async function generateResumePdf({ resume, selfDescription, jobDescription }) {
   return await withRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       config: {
         systemInstruction: `You are a professional resume writer. Generate a clean, ATS-friendly, human-sounding resume in HTML. Simple professional design. 1-2 pages max. No AI-sounding language.`,
         responseMimeType: "application/json",
