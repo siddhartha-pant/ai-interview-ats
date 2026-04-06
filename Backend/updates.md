@@ -1,0 +1,2 @@
+-check zod
+-add better routing
